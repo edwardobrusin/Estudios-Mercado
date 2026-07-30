@@ -3,9 +3,12 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 from PIL import Image
+import os
 import urllib.request
 import json
 import jenkspy
+import textwrap
+from streamlit_javascript import st_javascript
 
 # ==========================================
 # 1. CONFIGURACIÓN DE LA PÁGINA (FULL CANVAS)
@@ -48,6 +51,24 @@ st.markdown("""
     * { font-family: 'Noto Sans', sans-serif !important; }
 </style>
 """, unsafe_allow_html=True)
+
+# ==========================================
+# 1.1 DETECCIÓN DE ANCHO DISPONIBLE (RESPONSIVE)
+# ==========================================
+ANCHO_REFERENCIA = 1600  # px: ancho de monitor sobre el cual se calibró el diseño original
+
+ancho_pantalla = st_javascript("window.innerWidth")
+if not ancho_pantalla:
+    ancho_pantalla = ANCHO_REFERENCIA  # fallback mientras se resuelve el valor real (primer render)
+
+factor_escala = ancho_pantalla / ANCHO_REFERENCIA
+factor_escala = max(0.55, min(1.0, factor_escala))  # nunca crece más allá del diseño original
+
+def wrap_dinamico(texto, fraccion_ancho, tam_fuente):
+    """Inserta <br> automáticos según el espacio real (px) disponible para esa caja."""
+    ancho_caja_px = ancho_pantalla * fraccion_ancho
+    caracteres_por_linea = max(20, int(ancho_caja_px / (tam_fuente * 0.55)))
+    return "<br>".join(textwrap.wrap(texto, width=caracteres_por_linea))
 
 # ==========================================
 # 2. CARGA Y TRANSFORMACIÓN DE DATOS
@@ -94,11 +115,45 @@ df_ue, df_tend, cat_ramas, df_tip, df_imports, df_ied = load_data()
 
 # Normalizador de estados (Mismo usado en ficha_v4 para coincidir con el GeoJSON)
 NAME_NORMALIZER = {
+    'Aguascalientes': 'Aguascalientes',
+    'Baja california': 'Baja California',
+    'Baja california sur': 'Baja California Sur',
+    'Campeche': 'Campeche',
+    'Chiapas': 'Chiapas',
+    'Chihuahua': 'Chihuahua',
+    'Ciudad de méxico': 'Ciudad de México',
+    'Coahuila de zaragoza': 'Coahuila',
+    'Colima': 'Colima',
+    'Durango': 'Durango',
+    'Guanajuato': 'Guanajuato',
+    'Guerrero': 'Guerrero',
+    'Hidalgo': 'Hidalgo',
+    'Jalisco': 'Jalisco',
+    'Michoacán de ocampo': 'Michoacán',
+    'Morelos': 'Morelos',
+    'México': 'México',
+    'Nayarit': 'Nayarit',
+    'Nuevo león': 'Nuevo León',
+    'Oaxaca': 'Oaxaca',
+    'Puebla': 'Puebla',
+    'Querétaro': 'Querétaro',
+    'Quintana roo': 'Quintana Roo',
+    'San luis potosí': 'San Luis Potosí',
+    'Sinaloa': 'Sinaloa',
+    'Sonora': 'Sonora',
+    'Tabasco': 'Tabasco',
+    'Tamaulipas': 'Tamaulipas',
+    'Tlaxcala': 'Tlaxcala',
+    'Veracruz de ignacio de la llave': 'Veracruz',
+    'Yucatán': 'Yucatán',
+    'Zacatecas': 'Zacatecas',
+    # Mantenemos las variaciones anteriores por seguridad
     'Coahuila de Zaragoza': 'Coahuila', 
     'Michoacán de Ocampo': 'Michoacán', 
     'Veracruz de Ignacio de la Llave': 'Veracruz', 
     'Estado de México': 'México',
-    'Mexico': 'México'
+    'Mexico': 'México',
+    'veracruz': 'Veracruz'
 }
 
 # ==========================================
@@ -132,6 +187,7 @@ df_pastel = ue_filt.groupby('estrato')['ue'].sum().reset_index()
 # C. Extracción de Tipificación
 tip_val = df_tip[df_tip['Rama'] == rama_filtro]['Tipificación'].values
 texto_tipificacion = tip_val[0] if len(tip_val) > 0 else "Sin tipificación"
+texto_tipificacion = wrap_dinamico(texto_tipificacion, fraccion_ancho=0.42, tam_fuente=16)
 
 # D. Procesamiento Importaciones
 df_imports['scian'] = df_imports['scian'].astype(str)
@@ -242,6 +298,16 @@ for i, row in top5.iterrows():
     pct = (row['p_o_est'] / total_nacional * 100) if total_nacional > 0 else 0
     top5_html += f"• {row['entidad_norm']}: {row['p_o_est']:,.0f} ({pct:.1f}%)<br>"
 
+# Footnote con salto de línea automático y ancho máximo controlado
+texto_footer_raw = ("Fuente: Elaborado por Nafin-Bancomext con información del INEGI. 1/ Para más detalles, véase anexo "
+                     "metodológico. 2/ Cálculos mediante estimación de personas ocupadas por estado con el Directorio "
+                     "Estadístico Nacional de Unidades Económicas, de acuerdo con los siguientes rangos. 0 a 5 personas: 2.5 | "
+                     "6 a 10 personas: 8 | 11 a 30 personas: 20.5 | 31 a 50 personas: 40.5 | 51 a 100 personas: 75.5 | "
+                     "101 a 250 personas: 175.5 | 251 y más personas: 500.")
+texto_footer = wrap_dinamico(texto_footer_raw, fraccion_ancho=0.90, tam_fuente=10)
+
+# Cálculo dinámico del eje Y de barras
+
 # --- LEYENDA DISCRETA: cuadros individuales por rango (sustituye la colorbar combinada) ---
 colores_leyenda = ['#d3d3d3', '#feebe2', '#fbb4b9', '#f768a1', '#c51b8a', '#7a0177']
 legend_shapes = []
@@ -256,7 +322,7 @@ for color, label in zip(colores_leyenda, rango_labels):
     ))
     legend_annotations.append(dict(
         x=0.375, y=y0_legend + 0.015, xref="paper", yref="paper",
-        text=label, showarrow=False, font=dict(size=14, color="#0F172A"),
+        text=label, showarrow=False, font=dict(size=14 * factor_escala, color="#0F172A"),
         align="left", xanchor="left", yanchor="middle"
     ))
     y0_legend -= paso_legend
@@ -364,7 +430,8 @@ try:
 except Exception as e: pass
 
 fig.update_layout(
-    height=850,
+    width=1921, # 50% de 3842 para bloquear el aspect ratio visualmente
+    height=1081, # 50% de 2162
     margin=dict(l=0, r=0, t=0, b=80), # Aumentamos el margen inferior para que quepa el texto multilínea
     showlegend=False,
     font=dict(family="Noto Sans", color="#0F172A"),
@@ -426,20 +493,20 @@ fig.update_layout(
 
     annotations=[
         # Título superior izquierdo "Codigo - Descripción"
-        dict(x=0.02, y=0.98, xref="paper", yref="paper", text=f"<b>{rama_seleccionada_txt}</b>", showarrow=False, font=dict(size=30, color="#0F172A"), align="left", xanchor="left"),
+        dict(x=0.02, y=0.98, xref="paper", yref="paper", text=f"<b>{rama_seleccionada_txt}</b>", showarrow=False, font=dict(size=26 * factor_escala, color="#0F172A"), align="left", xanchor="left"),
         
         # Títulos de las gráficas
-        dict(x=0.02, y=0.85, xref="paper", yref="paper", text="Tendencia de largo plazo<sup>1/</sup>", showarrow=False, font=dict(size=18, weight="bold", color="#0F172A"), align="left", xanchor="left"),
-        dict(x=0.75, y=0.42, xref="paper", yref="paper", text="Importaciones mensuales EUA", showarrow=False, font=dict(size=18, weight="bold", color="#0F172A"), align="left", xanchor="left"),
-        dict(x=0.75, y=0.90, xref="paper", yref="paper", text="Distribución de UEs por estrato", showarrow=False, font=dict(size=18, weight="bold", color="#0F172A"), align="left", xanchor="left"),
-        dict(x=0.02, y=0.46, xref="paper", yref="paper", text=f"Inversión Extranjera Directa ({nivel_ied})", showarrow=False, font=dict(size=18, weight="bold", color="#0F172A"), align="left", xanchor="left"),
-        dict(x=0.48, y=0.85, xref="paper", yref="paper", text="Personal ocupado estimado<sup>2/</sup>", showarrow=False, font=dict(size=22, weight="bold", color="#0F172A"), align="center", xanchor="center"),
+        dict(x=0.02, y=0.85, xref="paper", yref="paper", text="Tendencia de largo plazo<sup>1/</sup>", showarrow=False, font=dict(size=18 * factor_escala, weight="bold", color="#0F172A"), align="left", xanchor="left"),
+        dict(x=0.75, y=0.42, xref="paper", yref="paper", text="Importaciones mensuales EUA", showarrow=False, font=dict(size=18 * factor_escala, weight="bold", color="#0F172A"), align="left", xanchor="left"),
+        dict(x=0.75, y=0.90, xref="paper", yref="paper", text="Distribución de UEs por estrato", showarrow=False, font=dict(size=18 * factor_escala, weight="bold", color="#0F172A"), align="left", xanchor="left"),
+        dict(x=0.02, y=0.46, xref="paper", yref="paper", text=f"Inversión Extranjera Directa ({nivel_ied})", showarrow=False, font=dict(size=18 * factor_escala, weight="bold", color="#0F172A"), align="left", xanchor="left"),
+        dict(x=0.48, y=0.85, xref="paper", yref="paper", text="Personal ocupado estimado<sup>2/</sup>", showarrow=False, font=dict(size=22 * factor_escala, weight="bold", color="#0F172A"), align="center", xanchor="center"),
         
         # Cuadro Top 5 Entidades (Ajustado al centro/mapa)
-        dict(x=0.56, y=0.68, xref="paper", yref="paper", text=top5_html, showarrow=False, font=dict(size=16, color="#0F172A"), align="left", xanchor="left", yanchor="middle", bgcolor="rgba(255,255,255,0.92)", bordercolor="#c51b8a", borderwidth=1.5, borderpad=10),
+        dict(x=0.56, y=0.68, xref="paper", yref="paper", text=top5_html, showarrow=False, font=dict(size=16 * factor_escala, color="#0F172A"), align="left", xanchor="left", yanchor="middle", bgcolor="rgba(255,255,255,0.92)", bordercolor="#c51b8a", borderwidth=1.5, borderpad=10 * factor_escala),
         
         # Cuadro Tipificación (Debajo del mapa)
-        dict(x=0.22, y=0.88, xref="paper", yref="paper", text=f"<b>Tipificación tendencia: 2018-2026 <sup>1/</sup></b><br>{texto_tipificacion}", showarrow=False, font=dict(size=14, color="#7a0177"), align="center", xanchor="center", bgcolor="#feebe2", bordercolor="#c51b8a", borderwidth=2, borderpad=10),
+        dict(x=0.25, y=0.88, xref="paper", yref="paper", text=f"<b>Tipificación tendencia: 2018-2026 <sup>1/</sup></b><br>{texto_tipificacion}", showarrow=False, font=dict(size=14 * factor_escala, color="#7a0177"), align="center", xanchor="center", bgcolor="#feebe2", bordercolor="#c51b8a", borderwidth=2, borderpad=10 * factor_escala),
         
         # Condicional si Imports está vacío
         *( [dict(x=0.135, y=0.70, xref="paper", yref="paper", text="No se reportaron importaciones de<br>Estados Unidos originarias<br>de México para esta rama.", showarrow=False, font=dict(size=11, color="#DC2626"), align="center", xanchor="center", bgcolor="white", bordercolor="#E2E8F0", borderwidth=1, borderpad=8)] if imp_filt.empty else [] ),
@@ -447,8 +514,8 @@ fig.update_layout(
         # Condicional si IED está vacío
         *( [dict(x=0.865, y=0.70, xref="paper", yref="paper", text="Datos de IED no disponibles<br>por criterio de confidencialidad.", showarrow=False, font=dict(size=11, color="#DC2626"), align="center", xanchor="center", bgcolor="white", bordercolor="#E2E8F0", borderwidth=1, borderpad=8)] if not es_valido_ied else [] ),
 
-        # Pie de página (Footer)
-        dict(x=0.01, y=0.00, xref="paper", yref="paper", text="Fuente: Elaborado por Nafin-Bancomext con información del INEGI. 1/ Para más detalles, véase anexo metodológico. 2/ Cálculos mediante estimación de personas ocupadas por estado con el Directorio Estadístico Nacional de Unidades Económicas, de acuerdo con los siguientes rangos.<br>0 a 5 personas: 2.5 | 6 a 10 personas: 8 | 11 a 30 personas: 20.5 | 31 a 50 personas: 40.5 | 51 a 100 personas: 75.5 | 101 a 250 personas: 175.5 | 251 y más personas: 500.", showarrow=False, font=dict(size=10, color="#64748B"), align="left")
+        # Pie de página (Footer) - usa el texto ya envuelto dinámicamente según ancho real de pantalla
+        dict(x=0.01, y=0.00, xref="paper", yref="paper", text=texto_footer, showarrow=False, font=dict(size=10 * factor_escala, color="#64748B"), align="left")
     ] + legend_annotations,
     shapes=legend_shapes
 )
