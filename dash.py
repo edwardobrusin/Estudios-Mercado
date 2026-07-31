@@ -176,6 +176,7 @@ rama_filtro = opciones_rama[rama_seleccionada_txt]
 # Filtrar df por la rama seleccionada
 ue_filt = df_ue[df_ue['Rama'] == rama_filtro].copy()
 tend_filt = df_tend[df_tend['Rama'] == rama_filtro].copy()
+tend_filt['Valor'] = tend_filt['Valor'] / 1000 # División entre mil
 
 # A. Datos Mapa: Agrupar por estado y sumar p_o_est
 ue_filt['entidad_norm'] = ue_filt['entidad'].replace(NAME_NORMALIZER)
@@ -194,8 +195,9 @@ df_imports['scian'] = df_imports['scian'].astype(str)
 imp_filt = df_imports[df_imports['scian'] == rama_filtro].copy()
 if not imp_filt.empty:
     imp_filt = imp_filt.sort_values('fecha')
+    imp_filt['valor'] = imp_filt['valor'] / 1000000 # División entre un millón
 
-# E. Procesamiento IED
+    # E. Procesamiento IED
 df_ied['scian'] = df_ied['scian'].astype(str)
 
 def procesar_ied(codigo_scian):
@@ -304,7 +306,7 @@ texto_footer_raw = ("Fuente: Elaborado por Nafin-Bancomext con información del 
                      "Estadístico Nacional de Unidades Económicas, de acuerdo con los siguientes rangos. 0 a 5 personas: 2.5 | "
                      "6 a 10 personas: 8 | 11 a 30 personas: 20.5 | 31 a 50 personas: 40.5 | 51 a 100 personas: 75.5 | "
                      "101 a 250 personas: 175.5 | 251 y más personas: 500.")
-texto_footer = wrap_dinamico(texto_footer_raw, fraccion_ancho=0.90, tam_fuente=10)
+texto_footer = wrap_dinamico(texto_footer_raw, fraccion_ancho=0.9, tam_fuente=10)
 
 # Cálculo dinámico del eje Y de barras
 
@@ -381,7 +383,7 @@ fig.add_trace(go.Pie(
     values=df_pastel['ue'],
     marker=dict(colors=[colores_estrato.get(x, '#d3d3d3') for x in df_pastel['estrato']], line=dict(color='white', width=1)),
     textinfo='label+percent',
-    hovertemplate="%{label}<br>UEs: %{value:,.0f} (%{percent})<extra></extra>",
+    hovertemplate="%{label}<br>Unidades Económicas: %{value:,.0f} (%{percent})<extra></extra>",
     hole=0.4,
     domain=dict(x=[0.77, 0.99], y=[0.45, 0.85]) 
 ))
@@ -455,7 +457,7 @@ fig.update_layout(
         tickfont=dict(size=9)
     ),
     yaxis=dict(
-        domain=[0.55, 0.80],
+        domain=[0.57, 0.83],
         anchor="x", 
         showgrid=True, 
         gridcolor="rgba(0,0,0,0.1)",
@@ -496,10 +498,10 @@ fig.update_layout(
         dict(x=0.02, y=0.98, xref="paper", yref="paper", text=f"<b>{rama_seleccionada_txt}</b>", showarrow=False, font=dict(size=26 * factor_escala, color="#0F172A"), align="left", xanchor="left"),
         
         # Títulos de las gráficas
-        dict(x=0.02, y=0.85, xref="paper", yref="paper", text="Tendencia de largo plazo<sup>1/</sup>", showarrow=False, font=dict(size=18 * factor_escala, weight="bold", color="#0F172A"), align="left", xanchor="left"),
-        dict(x=0.75, y=0.42, xref="paper", yref="paper", text="Importaciones mensuales EUA", showarrow=False, font=dict(size=18 * factor_escala, weight="bold", color="#0F172A"), align="left", xanchor="left"),
-        dict(x=0.75, y=0.90, xref="paper", yref="paper", text="Distribución de UEs por estrato", showarrow=False, font=dict(size=18 * factor_escala, weight="bold", color="#0F172A"), align="left", xanchor="left"),
-        dict(x=0.02, y=0.46, xref="paper", yref="paper", text=f"Inversión Extranjera Directa ({nivel_ied})", showarrow=False, font=dict(size=18 * factor_escala, weight="bold", color="#0F172A"), align="left", xanchor="left"),
+        dict(x=0.02, y=0.85, xref="paper", yref="paper", text="Tendencia de largo plazo<sup>1/</sup><br><span style='font-size:13px; font-weight:normal; color:#64748B;'>Miles de millones de pesos</span>", showarrow=False, font=dict(size=18 * factor_escala, weight="bold", color="#0F172A"), align="left", xanchor="left"),
+        dict(x=0.75, y=0.42, xref="paper", yref="paper", text="Importaciones mensuales EUA<br><span style='font-size:13px; font-weight:normal; color:#64748B;'>Millones de dólares</span>", showarrow=False, font=dict(size=18 * factor_escala, weight="bold", color="#0F172A"), align="left", xanchor="left"),
+        dict(x=0.75, y=0.90, xref="paper", yref="paper", text="Distribución de Unidades Económicas por estrato", showarrow=False, font=dict(size=18 * factor_escala, weight="bold", color="#0F172A"), align="left", xanchor="left"),
+        dict(x=0.02, y=0.48, xref="paper", yref="paper", text=f"Inversión Extranjera Directa ({nivel_ied})<br><span style='font-size:13px; font-weight:normal; color:#64748B;'>Millones de Dólares</span>", showarrow=False, font=dict(size=18 * factor_escala, weight="bold", color="#0F172A"), align="left", xanchor="left"),
         dict(x=0.48, y=0.85, xref="paper", yref="paper", text="Personal ocupado estimado<sup>2/</sup>", showarrow=False, font=dict(size=22 * factor_escala, weight="bold", color="#0F172A"), align="center", xanchor="center"),
         
         # Cuadro Top 5 Entidades (Ajustado al centro/mapa)
