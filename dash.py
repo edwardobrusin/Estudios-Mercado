@@ -93,11 +93,11 @@ def load_data():
     # Extraer 4 dígitos (Rama)
     df_ue['Rama'] = df_ue['codigo_act'].str[:4]
     # Filtrar solo Manufactura (inician con 31 o 33)
-    df_ue = df_ue[df_ue['Rama'].str.startswith('31') | df_ue['Rama'].str.startswith('33')]
+    df_ue = df_ue[df_ue['Rama'].str.startswith('31') | df_ue['Rama'].str.startswith('32') | df_ue['Rama'].str.startswith('33')]
 
     # --- PROCESAMIENTO TENDENCIA ---
     df_tend['Rama'] = df_tend['Rama'].astype(str)
-    df_tend = df_tend[df_tend['Rama'].str.startswith('31') | df_tend['Rama'].str.startswith('33')]
+    df_tend = df_tend[df_tend['Rama'].str.startswith('31') | df_tend['Rama'].str.startswith('32') | df_tend['Rama'].str.startswith('33')]
     df_tend = df_tend[df_tend['Año'] >= 2018]
     df_tend['Periodo'] = df_tend['Año'].astype(str) + " T" + df_tend['Trimestre'].astype(str)
     
@@ -106,7 +106,7 @@ def load_data():
     # --- PROCESAMIENTO SCIAN ---
     df_scian['Rama'] = df_scian['Rama'].astype(str)
     # Obtener diccionario único de Ramas manufactureras para el selectbox
-    cat_ramas = df_scian[df_scian['Rama'].str.startswith('31') | df_scian['Rama'].str.startswith('33')]
+    cat_ramas = df_scian[df_scian['Rama'].str.startswith('31') | df_scian['Rama'].str.startswith('32') | df_scian['Rama'].str.startswith('33')]
     cat_ramas = cat_ramas[['Rama', 'N_Rama']].drop_duplicates()
     
     return df_ue, df_tend, cat_ramas, df_tip, df_imports, df_ied
